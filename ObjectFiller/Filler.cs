@@ -33,7 +33,7 @@ namespace Tynamix.ObjectFiller
         /// </summary>
         private readonly SetupManager setupManager;
 
-        #endregion
+        #endregion Fields
 
         #region Constructors and Destructors
 
@@ -45,7 +45,7 @@ namespace Tynamix.ObjectFiller
             this.setupManager = new SetupManager();
         }
 
-        #endregion
+        #endregion Constructors and Destructors
 
         #region Public Methods and Operators
 
@@ -152,7 +152,7 @@ namespace Tynamix.ObjectFiller
             return new FluentFillerApi<T>(this.setupManager);
         }
 
-        #endregion
+        #endregion Public Methods and Operators
 
         #region Methods
 
@@ -313,7 +313,7 @@ namespace Tynamix.ObjectFiller
         /// </returns>
         private static bool TypeIsValidForObjectFiller(Type type, FillerSetupItem currentSetupItem)
         {
-            var result= HasTypeARandomFunc(type, currentSetupItem)
+            var result = HasTypeARandomFunc(type, currentSetupItem)
                    || (TypeIsList(type) && ListParamTypeIsValid(type, currentSetupItem))
                    || (TypeIsDictionary(type) && DictionaryParamTypesAreValid(type, currentSetupItem))
                    || TypeIsPoco(type)
@@ -634,15 +634,10 @@ namespace Tynamix.ObjectFiller
             IDictionary dictionary = (IDictionary)Activator.CreateInstance(propertyType);
             Type keyType = propertyType.GetGenericArguments()[0];
             Type valueType = propertyType.GetGenericArguments()[1];
+            List<object> dictionaryKeys = GenerateDictionaryKeys(keyType, currentSetupItem, typeTracker);
 
-            int maxDictionaryItems = Random.Next(
-                currentSetupItem.DictionaryKeyMinCount,
-                currentSetupItem.DictionaryKeyMaxCount);
-
-            for (int i = 0; i < maxDictionaryItems; i++)
+            foreach (var keyObject in dictionaryKeys)
             {
-                object keyObject = this.CreateAndFillObject(keyType, currentSetupItem, typeTracker);
-
                 if (dictionary.Contains(keyObject))
                 {
                     string message =
@@ -657,6 +652,50 @@ namespace Tynamix.ObjectFiller
             }
 
             return dictionary;
+        }
+
+        /// <summary>
+        /// Generates keys for a randomized dictionary.  If <paramref name="keyType"/> is an enumeration, special
+        /// handling is taken to ensure that duplicates aren't created.
+        /// </summary>
+        /// <param name="keyType">The dictionary key type</param>
+        /// <param name="currentSetupItem">The current setup item</param>
+        /// <param name="typeTracker">The dictionaryType tracker to find circular dependencies</param>
+        /// <returns></returns>
+        private List<object> GenerateDictionaryKeys(Type keyType, FillerSetupItem currentSetupItem, HashStack<Type> typeTracker)
+        {
+            List<object> keys = new List<object>();
+
+            if (keyType.IsEnum)
+            {
+                // TODO: The result of this could be cached for performance if desired
+                var enumValues = Enum.GetValues(keyType).Cast<object>().ToList();
+
+                int maxDictionaryItems = Random.Next(
+                    Math.Min(enumValues.Count, currentSetupItem.DictionaryKeyMinCount),
+                    Math.Min(enumValues.Count, currentSetupItem.DictionaryKeyMaxCount));
+
+                for (int i = 0; i < maxDictionaryItems; i++)
+                {
+                    int randomIndex = Random.Next(enumValues.Count);
+                    var key = enumValues[randomIndex];
+                    keys.Add(key);
+                    enumValues.Remove(key);
+                }
+            }
+            else
+            {
+                int maxDictionaryItems = Random.Next(
+                    currentSetupItem.DictionaryKeyMinCount,
+                    currentSetupItem.DictionaryKeyMaxCount);
+
+                for (int i = 0; i < maxDictionaryItems; i++)
+                {
+                    keys.Add(this.CreateAndFillObject(keyType, currentSetupItem, typeTracker));
+                }
+            }
+
+            return keys;
         }
 
         /// <summary>
@@ -888,7 +927,7 @@ namespace Tynamix.ObjectFiller
         }
 
         /// <summary>
-        /// Sets the given <see cref="value"/> on the given <see cref="property"/> for the given <see cref="objectToFill"/> 
+        /// Sets the given <see cref="value"/> on the given <see cref="property"/> for the given <see cref="objectToFill"/>
         /// </summary>
         /// <param name="property">
         /// The property to set
@@ -926,6 +965,6 @@ namespace Tynamix.ObjectFiller
             return type.IsEnum;
         }
 
-        #endregion
+        #endregion Methods
     }
 }

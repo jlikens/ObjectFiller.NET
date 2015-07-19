@@ -131,6 +131,30 @@ namespace ObjectFiller.Test
             }
         }
 
+        enum DictionaryTestEnum
+        {
+            Foo,
+            Bar,
+            Bat,
+            Ban
+        }
+
+        [TestMethod]
+        public void GenerateTestDataForADictionaryWithEnumerationKey()
+        {
+            var enumValues = Enum.GetValues(typeof(DictionaryTestEnum)).Cast<DictionaryTestEnum>().ToList();
+
+            Filler<Dictionary<DictionaryTestEnum, string>> filler = new Filler<Dictionary<DictionaryTestEnum, string>>();
+            filler.Setup().DictionaryItemCount(enumValues.Count, enumValues.Count + 10);
+            var result = filler.Create(1).ToList().First();
+
+            Assert.AreEqual(enumValues.Count, result.Count);
+            foreach(var enumValue in enumValues)
+            {
+                Assert.IsTrue(result.ContainsKey(enumValue));
+            }
+        }
+
         private Entity[] GetArray()
         {
             Filler<Entity> of = new Filler<Entity>();
